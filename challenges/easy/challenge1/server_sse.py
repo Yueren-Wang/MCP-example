@@ -63,6 +63,11 @@ class Challenge1Server:
             else:
                 return f"User not found: {username}"
         
+        # Add a tool that reads user notes, which can be exploited if an attacker injects malicious input into the user_id parameter
+        @self.mcp.tool()
+        def read_user_notes(user_id: str):
+            return get_user_notes(user_id)
+
         # Mount the SSE server
         self.mount_sse_server()
     
