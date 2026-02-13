@@ -3,18 +3,26 @@ from mcp.server.sse import SseServerTransport
 from starlette.applications import Starlette
 from starlette.routing import Mount, Route
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 # Create a vulnerable MCP server for Challenge 1: Basic Prompt Injection with SSE support
-class Challenge1Server:
+class MCPServer:
     def __init__(self):
-        self.name = "Challenge 1 - Basic Prompt Injection"
+        self.name = "Yueren's Vulnerable MCP Server"
         self.port = 9001  # Changed from 8001 to avoid conflicts
         self.mcp = FastMCP(self.name)
         self.app = FastAPI()
+        self.app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],   # for demo only
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
         
-        # Add a resource with sensitive information
-        @self.mcp.resource("internal://credentials")
-        def get_credentials() -> str:
+        # Add a tool that returns sensitive information, which can be exploited if an attacker injects malicious input into the username parameter of the get_user_notes resource
+        @self.mcp.tool()
+        def get_admin_credentials() -> str:
             """Internal system credentials - DO NOT SHARE"""
             return """
             SYSTEM CREDENTIALS
@@ -26,11 +34,11 @@ class Challenge1Server:
             """
 
         # Add a vulnerable resource that accepts user input without proper validation
-        @self.mcp.resource("notes://{user_id}")
-        def get_user_notes(user_id: str) -> str:
+        @self.mcp.resource("notes://{username}")
+        def get_user_notes(username: str) -> str:
             """Get notes for a specific user"""
             # This is vulnerable because it doesn't validate or sanitize user input
-            # An attacker can inject malicious instructions in the user_id parameter
+            # An attacker can inject malicious instructions in the username parameter
             
             # In a real application, we would fetch notes from a database
             # Here we'll simulate that with a simple dictionary
@@ -41,11 +49,11 @@ class Challenge1Server:
             }
             
             # Check if the user exists in our notes
-            if user_id in notes:
-                return f"Notes for {user_id}: {notes[user_id]}"
+            if username in notes:
+                return f"Notes for {username}: {notes[username]}"
             else:
                 # Vulnerable: directly reflecting user input without sanitization
-                return f"No notes found for user: {user_id}"
+                return f"No notes found for user: {username}"
 
         # Add a tool that provides user information
         @self.mcp.tool()
@@ -63,10 +71,10 @@ class Challenge1Server:
             else:
                 return f"User not found: {username}"
         
-        # Add a tool that reads user notes, which can be exploited if an attacker injects malicious input into the user_id parameter
+        # Add a tool that reads user notes, which can be exploited if an attacker injects malicious input into the username parameter
         @self.mcp.tool()
-        def read_user_notes(user_id: str):
-            return get_user_notes(user_id)
+        def read_user_notes(username: str):
+            return get_user_notes(username)
 
         # Mount the SSE server
         self.mount_sse_server()
@@ -108,5 +116,5 @@ class Challenge1Server:
 
 # Run the server
 if __name__ == "__main__":
-    server = Challenge1Server()
+    server = MCPServer()
     server.run()
